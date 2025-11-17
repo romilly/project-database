@@ -131,3 +131,68 @@ def collect_project_metadata(project_dir: Path) -> dict:
         "logseq_page": logseq_page,
         "github_url": github_url
     }
+
+
+def scan_projects_directory(parent_dir: Path) -> list[Path]:
+    """Scan a directory and return all direct subdirectories as project paths.
+
+    Args:
+        parent_dir: Parent directory containing projects (e.g., ~/git/active)
+
+    Returns:
+        List of Path objects for each direct subdirectory
+    """
+    projects = []
+    for item in parent_dir.iterdir():
+        if item.is_dir():
+            projects.append(item)
+    return projects
+
+
+def populate_database(parent_dir: Path) -> None:
+    """Scan a directory and populate database with all projects.
+
+    For each direct subdirectory, collects metadata and adds/updates
+    the project in the database.
+
+    Args:
+        parent_dir: Parent directory containing projects (e.g., ~/git/active)
+    """
+    from project_database.database import get_session
+    from project_database.models import Project
+
+    # Scan for projects
+    project_dirs = scan_projects_directory(parent_dir)
+
+    # Get database session
+    session = get_session()
+
+    try:
+        for project_dir in project_dirs:
+            # Collect metadata
+            metadata = collect_project_metadata(project_dir)
+
+            # Check if project already exists (by path)
+            existing = session.query(Project).filter_by(path=metadata["path"]).first()
+
+            if existing:
+                # Update existing project
+                existing.name = metadata["name"]
+                existing.readme_path = metadata["readme_path"]
+                existing.logseq_page = metadata["logseq_page"]
+                existing.github_url = metadata["github_url"]
+            else:
+                # Add new project
+                project = Project(
+                    name=metadata["name"],
+                    path=metadata["path"],
+                    readme_path=metadata["readme_path"],
+                    logseq_page=metadata["logseq_page"],
+                    github_url=metadata["github_url"]
+                )
+                session.add(project)
+
+        # Commit all changes
+        session.commit()
+    finally:
+        session.close()
