@@ -4,12 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**project-database** - A Python project following TDD principles.
+**project-database** - A Python meta-project to create and maintain a database of projects using SQLAlchemy + SQLite. The goal is to track project locations, GitHub sync status, and make it easier to find relevant projects. Built following strict TDD principles.
 
-## Core Architecture
+## Project Structure
 
-### Key Components
-- **project_database/main.py** - Main application logic
+```
+project-database/
+├── src/project_database/    # Main source code
+├── tests/                    # Test files
+│   ├── data/                # Test data files
+│   └── output/              # Test output files
+├── notebooks/               # Jupyter notebooks for experimentation
+├── plan/                    # Planning documents
+└── examples/                # Example scripts
+```
 
 ## Development Approach
 
@@ -64,6 +72,53 @@ pytest -k "test_name_pattern" -v
 
 Test data in `tests/data/`, output in `tests/output/`.
 
+## Setup and Installation
+
+```bash
+# Clone and navigate to project
+cd /home/romilly/git/active/project-database
+
+# Create/activate virtual environment (if needed)
+python -m venv venv
+source venv/bin/activate
+
+# Install in editable mode with test dependencies
+pip install -e .[test]
+
+# Verify installation
+pytest
+```
+
 ## Key Dependencies
 
 - **pytest** (>=7.0.0) - Testing framework
+- **pytest-cov** - Code coverage reporting
+- **notebook** - Jupyter notebook support (dev dependency)
+
+## Development Workflow
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run specific test file
+pytest tests/test_filename.py
+
+# Run specific test function
+pytest tests/test_filename.py::test_function_name -v
+
+# Run tests matching a pattern
+pytest -k "test_pattern" -v
+
+# Run with coverage report
+pytest --cov=project_database --cov-report=html
+```
+
+### Git Workflow
+
+After all tests pass, check with user before committing (per global CLAUDE.md instructions).

@@ -21,7 +21,9 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = []
+dependencies = [
+    "sqlalchemy>=2.0.0",
+]
 
 [project.optional-dependencies]
 test = [
