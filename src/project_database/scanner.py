@@ -1,6 +1,7 @@
 """Project scanning and metadata extraction functions."""
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import unquote
@@ -223,14 +224,15 @@ def scan_projects_directory(parent_dir: Path) -> list[Path]:
     return projects
 
 
-def populate_database(parent_dir: Path) -> None:
+def populate_database(parent_dir: Path, max_workers: int = 16) -> None:
     """Scan a directory and populate database with all projects.
 
-    For each direct subdirectory, collects metadata and adds/updates
+    For each direct subdirectory, collects metadata (in parallel) and adds/updates
     the project in the database.
 
     Args:
         parent_dir: Parent directory containing projects (e.g., ~/git/active)
+        max_workers: Maximum number of parallel workers for metadata collection (default: 16)
     """
     from project_database.database import get_session
     from project_database.models import Project
@@ -238,14 +240,31 @@ def populate_database(parent_dir: Path) -> None:
     # Scan for projects
     project_dirs = scan_projects_directory(parent_dir)
 
+    # Collect metadata in parallel using ThreadPoolExecutor
+    metadata_list = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all metadata collection tasks
+        future_to_dir = {
+            executor.submit(collect_project_metadata, project_dir): project_dir
+            for project_dir in project_dirs
+        }
+
+        # Collect results as they complete
+        for future in as_completed(future_to_dir):
+            try:
+                metadata = future.result()
+                metadata_list.append(metadata)
+            except Exception as e:
+                # Log error but continue processing other projects
+                project_dir = future_to_dir[future]
+                print(f"Error processing {project_dir}: {e}")
+
     # Get database session
     session = get_session()
 
     try:
-        for project_dir in project_dirs:
-            # Collect metadata
-            metadata = collect_project_metadata(project_dir)
-
+        # Update database serially (for transaction safety)
+        for metadata in metadata_list:
             # Check if project already exists (by path)
             existing = session.query(Project).filter_by(path=metadata["path"]).first()
 
