@@ -1,6 +1,7 @@
 """Project scanning and metadata extraction functions."""
 import re
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import unquote
 from typing import Optional
@@ -90,6 +91,73 @@ def get_github_url(remote_url: Optional[str]) -> Optional[str]:
     return None
 
 
+def get_last_file_modified_time(project_dir: Path) -> Optional[datetime]:
+    """Find the most recent file modification time in a project directory.
+
+    Uses the 'find' command for fast scanning, excluding certain directories
+    (venv, .git, __pycache__, node_modules, .idea, .pytest_cache).
+
+    Args:
+        project_dir: Path to project directory
+
+    Returns:
+        datetime of the most recent file modification, or None if no files found
+
+    Example:
+        >>> last_mod = get_last_file_modified_time(Path("/path/to/project"))
+        >>> print(last_mod)
+        2025-11-18 15:30:45.123456
+    """
+    # Directories to exclude from scanning
+    excluded_dirs = ['venv', '.git', '__pycache__', 'node_modules', '.idea', '.pytest_cache', '.venv']
+
+    try:
+        # Build find command with exclusions
+        # find /path -type f \( -path '*/venv/*' -o -path '*/.git/*' ... \) -prune -o -type f -printf '%T@\n'
+        find_cmd = ['find', str(project_dir), '-type', 'd']
+
+        # Add exclusions: -path '*/dirname/*' -prune for each excluded directory
+        prune_args = []
+        for i, excluded in enumerate(excluded_dirs):
+            if i > 0:
+                prune_args.append('-o')
+            prune_args.extend(['-path', f'*/{excluded}/*'])
+
+        find_cmd.extend(['('] + prune_args + [')', '-prune', '-o', '-type', 'f', '-printf', '%T@\\n'])
+
+        # Run find command
+        result = subprocess.run(
+            find_cmd,
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=30  # 30 second timeout
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+
+        # Parse timestamps and find the maximum
+        timestamps = []
+        for line in result.stdout.strip().split('\n'):
+            if line:
+                try:
+                    timestamps.append(float(line))
+                except ValueError:
+                    continue
+
+        if not timestamps:
+            return None
+
+        # Convert the maximum timestamp to datetime
+        max_timestamp = max(timestamps)
+        return datetime.fromtimestamp(max_timestamp)
+
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, Exception):
+        # If find command fails, return None
+        return None
+
+
 def collect_project_metadata(project_dir: Path) -> dict:
     """Collect metadata from a project directory.
 
@@ -97,7 +165,7 @@ def collect_project_metadata(project_dir: Path) -> dict:
         project_dir: Path to project directory
 
     Returns:
-        Dictionary with project metadata (name, path, readme_path, logseq_page, github_url)
+        Dictionary with project metadata (name, path, readme_path, logseq_page, github_url, last_file_modified)
     """
     # Check for README.md
     readme = project_dir / "README.md"
@@ -124,27 +192,33 @@ def collect_project_metadata(project_dir: Path) -> dict:
         # If git command fails or times out, github_url remains None
         pass
 
+    # Get most recent file modification time
+    last_file_modified = get_last_file_modified_time(project_dir)
+
     return {
         "name": project_dir.name,
         "path": str(project_dir),
         "readme_path": readme_path,
         "logseq_page": logseq_page,
-        "github_url": github_url
+        "github_url": github_url,
+        "last_file_modified": last_file_modified
     }
 
 
 def scan_projects_directory(parent_dir: Path) -> list[Path]:
     """Scan a directory and return all direct subdirectories as project paths.
 
+    Excludes the .claude directory (used by Claude Code for workspace configuration).
+
     Args:
         parent_dir: Parent directory containing projects (e.g., ~/git/active)
 
     Returns:
-        List of Path objects for each direct subdirectory
+        List of Path objects for each direct subdirectory (excluding .claude)
     """
     projects = []
     for item in parent_dir.iterdir():
-        if item.is_dir():
+        if item.is_dir() and item.name != ".claude":
             projects.append(item)
     return projects
 
@@ -181,6 +255,7 @@ def populate_database(parent_dir: Path) -> None:
                 existing.readme_path = metadata["readme_path"]
                 existing.logseq_page = metadata["logseq_page"]
                 existing.github_url = metadata["github_url"]
+                existing.last_file_modified = metadata["last_file_modified"]
             else:
                 # Add new project
                 project = Project(
@@ -188,7 +263,8 @@ def populate_database(parent_dir: Path) -> None:
                     path=metadata["path"],
                     readme_path=metadata["readme_path"],
                     logseq_page=metadata["logseq_page"],
-                    github_url=metadata["github_url"]
+                    github_url=metadata["github_url"],
+                    last_file_modified=metadata["last_file_modified"]
                 )
                 session.add(project)
 

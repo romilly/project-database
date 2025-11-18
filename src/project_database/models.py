@@ -1,5 +1,6 @@
 """SQLAlchemy models for the project database."""
-from sqlalchemy import Boolean, String
+from datetime import datetime
+from sqlalchemy import Boolean, DateTime, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -19,6 +20,9 @@ class Project(Base):
         logseq_page: Reference to Logseq page (optional)
         github_url: GitHub repository URL (optional)
         is_private: Whether the GitHub repo is private (optional)
+        created_at: Timestamp when record was created (auto-set)
+        updated_at: Timestamp when record was last updated (auto-updated)
+        last_file_modified: Most recent file modification time in project directory (optional)
     """
     __tablename__ = "projects"
 
@@ -29,6 +33,9 @@ class Project(Base):
     logseq_page: Mapped[str | None] = mapped_column(String(512), nullable=True)
     github_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_private: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    last_file_modified: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
         """Return string representation of Project."""

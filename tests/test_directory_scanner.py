@@ -25,3 +25,26 @@ def test_scan_finds_direct_subdirectories(tmp_path):
     assert proj1 in projects
     assert proj2 in projects
     assert proj3 in projects
+
+
+def test_scan_excludes_claude_directory(tmp_path):
+    """Test that scan_projects_directory excludes .claude directory."""
+    # Create a parent directory with project subdirectories and .claude
+    parent = tmp_path / "projects"
+    parent.mkdir()
+
+    proj1 = parent / "project-one"
+    proj1.mkdir()
+    proj2 = parent / "project-two"
+    proj2.mkdir()
+    claude_dir = parent / ".claude"
+    claude_dir.mkdir()
+
+    # Scan the parent directory
+    projects = scan_projects_directory(parent)
+
+    # Should find only the two projects, not .claude
+    assert len(projects) == 2
+    assert proj1 in projects
+    assert proj2 in projects
+    assert claude_dir not in projects
