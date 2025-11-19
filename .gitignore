@@ -144,4 +144,14 @@ test/test/data/generated
 
 Link.md
 
-/notebooks/chroma_db/
+# ChromaDB vector storage (any location)
+chroma_db/
+**/chroma_db/
+*_chroma_db/
+
+# Generated READMEs from experiments
+README_GENERATED.md
+**/README_GENERATED.md
+
+# Test output files
+tests/output/
