@@ -156,3 +156,4 @@ README_GENERATED.md
 # Test output files
 tests/output/
 /notebooks/spikes/
+/notebooks/output/
