@@ -97,6 +97,14 @@ pytest
 
 ## Development Workflow
 
+### Working with Jupyter Notebooks
+
+**IMPORTANT:** When editing Jupyter notebooks using NotebookEdit tool:
+1. The `edit_mode="insert"` parameter inserts cells in **reverse order**
+2. After making edits, **ALWAYS verify the cell order** by reading the notebook
+3. If cells are out of order, rewrite the entire notebook using the Write tool to ensure correct order
+4. Cell order should be logical (headers → code → results → summary)
+
 ### Running Tests
 
 ```bash
